@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadow Monarch's Deep Work System - Standalone App</title>
+    <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiU2hhZG93IE1vbmFyY2ggRm9jdXMgQXBwIiwic2hvcnRfbmFtZSI6IlNoYWRvd0FwcCIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMGEwYTBhIiwidGhlbWVfY29sb3IiOiIjN2MzYWVkIiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjNhV1IwYUQwaU1UQXdJaUJvWldsbmFIUTlJakV3TUNJZ2RtbGxkMEp2ZUQwaU1DQXdJREV3TUNBME1DSWdabWxzYkQwaUkzZGpaVE5oWldRaVBpQThjR0YwYUNCa1BTSk5NVEF1TXpJMUlERTNMak0xUXpBNE1EVXlJREUyTGpFd1FqQTRNakVnTVRRdU1qRXhRakE0T0RJZ01UTXVORGNnUVNBek1DQXpNQ0F3SURBMU56azJMakV4UVNBek1DQXpNQ0F3SURBMU56azJMakV4SWlCbWFXeHNQU0lqTnpNellXVmtJaTgrUEM5emRtYysrIiwic2l6ZXMiOiI5Nng5NiIsInR5cGUiOiJpbWFnZS9zdmcreG1sIn1dfQ==">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #e0e6ed;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* App Header */
+        .app-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 2px solid rgba(124, 58, 237, 0.3);
+            padding: 10px 20px;
+            z-index: 1000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .app-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #7c3aed;
+        }
+        
+        .install-btn {
+            background: linear-gradient(45deg, #10b981, #059669);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .install-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+        }
+        
+        /* Animated background particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #7c3aed;
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+            opacity: 0.7;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0.7; }
+            50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 80px 20px 20px;
+            position: relative;
+            z-index: 10;
+        }
+        
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+        
+        .title {
+            font-family: 'Orbitron', monospace;
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #7c3aed, #a855f7, #c084fc);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(124, 58, 237, 0.5);
+            margin-bottom: 10px;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 20px rgba(124, 58, 237, 0.3)); }
+            to { filter: drop-shadow(0 0 30px rgba(124, 58, 237, 0.6)); }
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #94a3b8;
+            font-weight: 300;
+        }
+        
+        /* Stats Panel */
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+        
+        .stat-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(124, 58, 237, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(124, 58, 237, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        .stat-card:hover {
+            border-color: rgba(124, 58, 237, 0.6);
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(124, 58, 237, 0.2);
+        }
+        
+        .stat-card:hover::before {
+            left: 100%;
+        }
+        
+        .stat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .stat-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
+            color: #a855f7;
+            font-weight: 700;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #e0e6ed;
+            text-shadow: 0 0 10px rgba(224, 230, 237, 0.3);
+        }
+        
+        .level-display {
+            font-size: 3rem;
+            font-family: 'Orbitron', monospace;
+            color: #fbbf24;
+            text-shadow: 0 0 15px rgba(251, 191, 36, 0.5);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(51, 65, 85, 0.6);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed, #a855f7);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            animation: shine 2s infinite;
+        }
+        
+        @keyframes shine {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        /* Work Session Panel */
+        .work-panel {
+            background: rgba(15, 23, 42, 0.9);
+            border: 2px solid rgba(124, 58, 237, 0.4);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 40px;
+            backdrop-filter: blur(15px);
+            position: relative;
+        }
+        
+        .work-panel::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, #7c3aed, #a855f7, #c084fc, #7c3aed);
+            border-radius: 20px;
+            z-index: -1;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .work-panel:hover::before {
+            opacity: 0.3;
+        }
+        
+        .timer-display {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .timer {
+            font-family: 'Orbitron', monospace;
+            font-size: 4rem;
+            color: #fbbf24;
+            text-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+            margin-bottom: 20px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        
+        .timer.active {
+            color: #ef4444;
+            text-shadow: 0 0 20px rgba(239, 68, 68, 0.6);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #7c3aed, #a855f7);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            color: white;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(124, 58, 237, 0.4);
+        }
+        
+        .btn:hover::before {
+            left: 100%;
+        }
+        
+        .btn:active {
+            transform: translateY(-1px);
+        }
+        
+        .btn-stop {
+            background: linear-gradient(45deg, #dc2626, #ef4444);
+        }
+        
+        .btn-reset {
+            background: linear-gradient(45deg, #059669, #10b981);
+        }
+        
+        .session-input {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .input-group label {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        
+        .input-group input, .input-group select {
+            background: rgba(51, 65, 85, 0.6);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #e0e6ed;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1rem;
+            width: 120px;
+            text-align: center;
+        }
+        
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #7c3aed;
+            box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
+        }
+        
+        .task-input {
+            width: 100%;
+            background: rgba(51, 65, 85, 0.6);
+            border: 1px solid rgba(124, 58, 237, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            color: #e0e6ed;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+        
+        .task-input:focus {
+            outline: none;
+            border-color: #7c3aed;
+            box-shadow: 0 0 10px rgba(124, 58, 237, 0.3);
+        }
+        
+        /* Quest Log */
+        .quest-log {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(124, 58, 237, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .quest-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5rem;
+            color: #a855f7;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .quest-item {
+            background: rgba(30, 41, 59, 0.6);
+            border-left: 4px solid #7c3aed;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .quest-item:hover {
+            background: rgba(30, 41, 59, 0.8);
+            transform: translateX(5px);
+        }
+        
+        .quest-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .quest-task {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .quest-time {
+            color: #fbbf24;
+            font-weight: 700;
+        }
+        
+        .quest-category {
+            color: #94a3b8;
+            font-size: 0.9rem;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: linear-gradient(45deg, #059669, #10b981);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            font-weight: 600;
+            box-shadow: 0 10px 25px rgba(5, 150, 105, 0.3);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+            max-width: 300px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        /* Data Management Panel */
+        .data-panel {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(124, 58, 237, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .data-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3rem;
+            color: #a855f7;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2.5rem;
+            }
+            
+            .timer {
+                font-size: 3rem;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 200px;
+            }
+            
+            .container {
+                padding-top: 100px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-header">
+        <div class="app-title">🗡️ Shadow Monarch App</div>
+        <button class="install-btn" id="installBtn" style="display: none;">📱 Install App</button>
+    </div>
+
+    <div class="particles"></div>
+    
+    <div class="container">
+        <header class="header">
+            <h1 class="title">SHADOW MONARCH</h1>
+            <p class="subtitle">Deep Work System • Level Up Through Focus</p>
+        </header>
+        
+        <div class="stats-panel">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Hunter Level</span>
+                </div>
+                <div class="stat-value level-display" id="level">1</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="levelProgress" style="width: 0%"></div>
+                </div>
+                <div style="text-align: center; margin-top: 10px; color: #94a3b8; font-size: 0.9rem;">
+                    <span id="xpText">0 / 100 XP</span>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Total Focus Time</span>
+                </div>
+                <div class="stat-value" id="totalTime">0h 0m</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Sessions Completed</span>
+                </div>
+                <div class="stat-value" id="totalSessions">0</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-header">
+                    <span class="stat-title">Current Streak</span>
+                </div>
+                <div class="stat-value" id="streak">0</div>
+            </div>
+        </div>
+        
+        <div class="work-panel">
+            <div class="timer-display">
+                <div class="timer" id="timer">25:00</div>
+            </div>
+            
+            <div class="session-input">
+                <div class="input-group">
+                    <label>Focus Time</label>
+                    <input type="number" id="focusMinutes" value="25" min="1" max="120">
+                </div>
+                <div class="input-group">
+                    <label>Break Time</label>
+                    <input type="number" id="breakMinutes" value="5" min="1" max="30">
+                </div>
+                <div class="input-group">
+                    <label>Category</label>
+                    <select id="category">
+                        <option value="Study">📚 Study Quest</option>
+                        <option value="Work">💼 Work Mission</option>
+                        <option value="Project">🛠️ Project Build</option>
+                        <option value="Research">🔍 Research Expedition</option>
+                        <option value="Writing">✍️ Writing Adventure</option>
+                        <option value="Coding">💻 Code Combat</option>
+                        <option value="Creative">🎨 Creative Challenge</option>
+                        <option value="Learning">🧠 Brain Training</option>
+                    </select>
+                </div>
+            </div>
+            
+            <input type="text" class="task-input" id="taskInput" placeholder="🎯 What epic quest shall you conquer today? (e.g., 'Defeat the Math Homework Boss', 'Study for the Final Exam Raid')">
+            
+            <div class="controls">
+                <button class="btn" id="startBtn">🚀 Begin Epic Quest</button>
+                <button class="btn btn-stop" id="stopBtn" style="display: none;">⛔ Pause Adventure</button>
+                <button class="btn btn-reset" id="resetBtn">🔄 Reset Quest Timer</button>
+            </div>
+        </div>
+        
+        <div class="data-panel">
+            <h3 class="data-title">💾 Progress Management</h3>
+            <div class="controls">
+                <button class="btn" id="exportBtn" style="background: linear-gradient(45deg, #0ea5e9, #0284c7);">💾 Export Save File</button>
+                <button class="btn" id="importBtn" style="background: linear-gradient(45deg, #f59e0b, #d97706);">📁 Import Save File</button>
+                <button class="btn" id="shareBtn" style="background: linear-gradient(45deg, #10b981, #059669);">🔗 Share Progress Code</button>
+                <button class="btn" id="loadBtn" style="background: linear-gradient(45deg, #8b5cf6, #7c3aed);">📥 Load Progress Code</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;">
+            </div>
+        </div>
+        
+        <div class="quest-log">
+            <h2 class="quest-title">🏆 Hall of Victories</h2>
+            <div id="questList">
+                <div style="text-align: center; padding: 30px;">
+                    <div style="font-size: 3rem; margin-bottom: 15px;">🗡️</div>
+                    <p style="color: #94a3b8; font-style: italic; font-size: 1.1rem;">
+                        Your quest log awaits, brave hunter!<br>
+                        Complete your first session to begin your legendary journey!
+                    </p>
+                    <div style="font-size: 1.5rem; margin-top: 15px;">⭐✨🌟</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+
+    <!-- Share Code Modal -->
+    <div id="shareModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; backdrop-filter: blur(5px);">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(15, 23, 42, 0.95); border: 2px solid rgba(124, 58, 237, 0.5); border-radius: 15px; padding: 30px; max-width: 500px; width: 90%;">
+            <h3 style="color: #a855f7; margin-bottom: 20px; text-align: center; font-family: 'Orbitron', monospace;">🔗 Share Your Progress</h3>
+            <p style="color: #94a3b8; margin-bottom: 15px; text-align: center;">Copy this code and paste it on any device to sync your progress:</p>
+            <textarea id="shareCode" readonly style="width: 100%; height: 150px; background: rgba(51, 65, 85, 0.6); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 8px; padding: 15px; color: #e0e6ed; font-family: monospace; resize: none; font-size: 0.9rem;"></textarea>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button class="btn" onclick="copyShareCode()" style="background: linear-gradient(45deg, #10b981, #059669);">📋 Copy Code</button>
+                <button class="btn" onclick="closeShareModal()" style="background: linear-gradient(45deg, #64748b, #475569);">✕ Close</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Load Code Modal -->
+    <div id="loadModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 10000; backdrop-filter: blur(5px);">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(15, 23, 42, 0.95); border: 2px solid rgba(124, 58, 237, 0.5); border-radius: 15px; padding: 30px; max-width: 500px; width: 90%;">
+            <h3 style="color: #a855f7; margin-bottom: 20px; text-align: center; font-family: 'Orbitron', monospace;">📥 Load Progress Code</h3>
+            <p style="color: #94a3b8; margin-bottom: 15px; text-align: center;">Paste your progress code here to sync from another device:</p>
+            <textarea id="loadCode" placeholder="Paste your progress code here..." style="width: 100%; height: 150px; background: rgba(51, 65, 85, 0.6); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 8px; padding: 15px; color: #e0e6ed; font-family: monospace; resize: none; font-size: 0.9rem;"></textarea>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
+                <button class="btn" onclick="loadFromCode()" style="background: linear-gradient(45deg, #8b5cf6, #7c3aed);">🚀 Load Progress</button>
+                <button class="btn" onclick="closeLoadModal()" style="background: linear-gradient(45deg, #64748b, #475569);">✕ Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // PWA Install functionality
+        let deferredPrompt;
+        const installBtn = document.getElementById('installBtn');
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            installBtn.style.display = 'block';
+        });
+
+        installBtn.addEventListener('click', async () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                if (outcome === 'accepted') {
+                    showNotification('🎉 App installed successfully! You can now use it offline!');
+                }
+                deferredPrompt = null;
+                installBtn.style.display = 'none';
+            }
+        });
+
+        // Service Worker for offline functionality
+        if ('serviceWorker' in navigator) {
+            const swCode = `
+                const CACHE_NAME = 'shadow-monarch-v1';
+                const urlsToCache = ['/'];
+
+                self.addEventListener('install', (event) => {
+                    event.waitUntil(
+                        caches.open(CACHE_NAME)
+                            .then((cache) => cache.addAll(urlsToCache))
+                    );
+                });
+
+                self.addEventListener('fetch', (event) => {
+                    event.respondWith(
+                        caches.match(event.request)
+                            .then((response) => response || fetch(event.request))
+                    );
+                });
+            `;
+
+            const blob = new Blob([swCode], { type: 'application/javascript' });
+            const swUrl = URL.createObjectURL(blob);
+            
+            navigator.serviceWorker.register(swUrl)
+                .then(() => console.log('Service Worker registered'))
+                .catch(() => console.log('Service Worker registration failed'));
+        }
+
+        // Game state
+        let gameState = {
+            level: 1,
+            xp: 0,
+            totalTime: 0,
+            totalSessions: 0,
+            streak: 0,
+            quests: []
+        };
+        
+        // Timer state
+        let timerState = {
+            minutes: 25,
+            seconds: 0,
+            isRunning: false,
+            isBreak: false,
+            interval: null
+        };
+        
+        // Fun messages arrays
+        const questCompleteMessages = [
+            "🗡️ Shadow Clone Jutsu successful! Training complete!",
+            "⚔️ You've slain the Procrastination Dragon!",
+            "🔥 Focus Fire technique mastered!",
+            "⭐ Achievement Unlocked: Deep Work Warrior!",
+            "🎯 Critical Hit! Productivity damage: MASSIVE!",
+            "🏆 You're unstoppable! The Shadow Army grows stronger!",
+            "💎 Legendary focus session completed!",
+            "🚀 Blast off! Your brain just leveled up!",
+            "⚡ Lightning Focus Strike! Enemy distractions defeated!"
+        ];
+        
+        const breakMessages = [
+            "☕ Mana regeneration time! Sip that potion!",
+            "🍕 Hero needs food! Badly!",
+            "🌟 Your brain is downloading new powers...",
+            "🎮 Loading next level... Please wait!",
+            "🛡️ Shield recharging... Defense systems online!",
+            "🔋 Battery at 100%! Ready to conquer!",
+            "🌈 Rainbow bridge to productivity is loading...",
+            "🎪 Intermission! The show must go on!"
+        ];
+        
+        const levelUpMessages = [
+            "🎉 LEVEL UP! You're now a Focus Ninja Level",
+            "💫 ASCENSION COMPLETE! Shadow Monarch Level",
+            "🔥 POWER SURGE! You've reached Level",
+            "⚡ TRANSFORMATION! Welcome to Level",
+            "🌟 EVOLUTION! You are now Level",
+            "👑 CORONATION! All hail Level"
+        ];
+
+        // Load saved data
+        function loadGameData() {
+            const saved = localStorage.getItem('soloLevelingData');
+            if (saved) {
+                gameState = { ...gameState, ...JSON.parse(saved) };
+            }
+        }
+        
+        // Save game data
+        function saveGameData() {
+            localStorage.setItem('soloLevelingData', JSON.stringify(gameState));
+        }
+        
+        // Create floating particles
+        function createParticles() {
+            const particles = document.querySelector('.particles');
+            for (let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
+                particles.appendChild(particle);
+            }
+        }
+        
+        // Calculate XP needed for level
+        function getXPForLevel(level) {
+            return 100 + (level - 1) * 50;
+        }
+        
+        // Level up check with fun messages
+        function checkLevelUp() {
+            const xpNeeded = getXPForLevel(gameState.level);
+            if (gameState.xp >= xpNeeded) {
+                gameState.level++;
+                gameState.xp -= xpNeeded;
+                
+                // Fun level up message
+                const randomLevelMessage = levelUpMessages[Math.floor(Math.random() * levelUpMessages.length)];
+                showNotification(`${randomLevelMessage} ${gameState.level}! 🎊`);
+                
+                // Trigger extra celebration for level ups
+                setTimeout(() => triggerCelebration(), 500);
+                
+                checkLevelUp(); // Check for multiple level ups
+            }
+        }
+        
+        // Celebration effects
+        function triggerCelebration() {
+            // Create celebration particles
+            for (let i = 0; i < 30; i++) {
+                createCelebrationParticle();
+            }
+            
+            // Screen flash effect
+            const flash = document.createElement('div');
+            flash.style.position = 'fixed';
+            flash.style.top = '0';
+            flash.style.left = '0';
+            flash.style.width = '100vw';
+            flash.style.height = '100vh';
+            flash.style.background = 'rgba(124, 58, 237, 0.3)';
+            flash.style.pointerEvents = 'none';
+            flash.style.zIndex = '9999';
+            flash.style.animation = 'flash 0.5s ease-out';
+            document.body.appendChild(flash);
+            
+            setTimeout(() => {
+                if (document.body.contains(flash)) {
+                    document.body.removeChild(flash);
+                }
+            }, 500);
+            
+            // Add flash animation
+            if (!document.getElementById('flashStyle')) {
+                const style = document.createElement('style');
+                style.id = 'flashStyle';
+                style.textContent = `
+                    @keyframes flash {
+                        0% { opacity: 0; }
+                        50% { opacity: 1; }
+                        100% { opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+        }
+        
+        // Create celebration particles
+        function createCelebrationParticle() {
+            const particle = document.createElement('div');
+            const colors = ['#fbbf24', '#f59e0b', '#7c3aed', '#a855f7', '#ef4444', '#10b981'];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            particle.style.position = 'fixed';
+            particle.style.width = '8px';
+            particle.style.height = '8px';
+            particle.style.background = randomColor;
+            particle.style.borderRadius = '50%';
+            particle.style.left = Math.random() * window.innerWidth + 'px';
+            particle.style.top = window.innerHeight + 'px';
+            particle.style.pointerEvents = 'none';
+            particle.style.zIndex = '1000';
+            
+            const animation = particle.animate([
+                { 
+                    transform: 'translateY(0px) rotate(0deg)', 
+                    opacity: 1 
+                },
+                { 
+                    transform: `translateY(-${window.innerHeight + 100}px) rotate(720deg)`, 
+                    opacity: 0 
+                }
+            ], {
+                duration: 2000 + Math.random() * 1000,
+                easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+            });
+            
+            document.body.appendChild(particle);
+            
+            animation.addEventListener('finish', () => {
+                if (document.body.contains(particle)) {
+                    document.body.removeChild(particle);
+                }
+            });
+        }
+        
+        // Show notification
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
+        }
+        
+        // Update display
+        function updateDisplay() {
+            document.getElementById('level').textContent = gameState.level;
+            document.getElementById('totalTime').textContent = formatTime(gameState.totalTime);
+            document.getElementById('totalSessions').textContent = gameState.totalSessions;
+            document.getElementById('streak').textContent = gameState.streak;
+            
+            const xpNeeded = getXPForLevel(gameState.level);
+            const progress = (gameState.xp / xpNeeded) * 100;
+            document.getElementById('levelProgress').style.width = progress + '%';
+            document.getElementById('xpText').textContent = `${gameState.xp} / ${xpNeeded} XP`;
+        }
+        
+        // Format time helper
+        function formatTime(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return `${hours}h ${mins}m`;
+        }
+        
+        // Update timer display
+        function updateTimer() {
+            const mins = timerState.minutes.toString().padStart(2, '0');
+            const secs = timerState.seconds.toString().padStart(2, '0');
+            document.getElementById('timer').textContent = `${mins}:${secs}`;
+        }
+        
+        // Start timer
+        function startTimer() {
+            if (timerState.isRunning) return;
+            
+            timerState.isRunning = true;
+            document.getElementById('timer').classList.add('active');
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            
+            timerState.interval = setInterval(() => {
+                if (timerState.seconds === 0) {
+                    if (timerState.minutes === 0) {
+                        // Timer finished
+                        completeSession();
+                        return;
+                    }
+                    timerState.minutes--;
+                    timerState.seconds = 59;
+                } else {
+                    timerState.seconds--;
+                }
+                updateTimer();
+            }, 1000);
+        }
+        
+        // Stop timer
+        function stopTimer() {
+            clearInterval(timerState.interval);
+            timerState.isRunning = false;
+            document.getElementById('timer').classList.remove('active');
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+        }
+        
+        // Reset timer
+        function resetTimer() {
+            stopTimer();
+            const focusMinutes = parseInt(document.getElementById('focusMinutes').value);
+            timerState.minutes = focusMinutes;
+            timerState.seconds = 0;
+            timerState.isBreak = false;
+            updateTimer();
+        }
+        
+        // Complete session
+        function completeSession() {
+            stopTimer();
+            
+            if (!timerState.isBreak) {
+                // Focus session completed
+                const focusMinutes = parseInt(document.getElementById('focusMinutes').value);
+                const task = document.getElementById('taskInput').value || 'Deep Work Session';
+                const category = document.getElementById('category').value;
+                
+                // Update game state
+                gameState.totalTime += focusMinutes;
+                gameState.totalSessions++;
+                gameState.streak++;
+                const xpGained = Math.floor(focusMinutes * 2) + Math.floor(Math.random() * 20); // Random bonus XP!
+                gameState.xp += xpGained;
+                
+                // Add to quest log
+                gameState.quests.unshift({
+                    task: task,
+                    category: category,
+                    duration: focusMinutes,
+                    timestamp: Date.now(),
+                    xpGained: xpGained
+                });
+                
+                // Keep only last 10 quests
+                if (gameState.quests.length > 10) {
+                    gameState.quests = gameState.quests.slice(0, 10);
+                }
+                
+                // Fun completion celebration
+                triggerCelebration();
+                
+                const oldLevel = gameState.level;
+                checkLevelUp();
+                saveGameData();
+                updateDisplay();
+                updateQuestLog();
+                
+                // Show fun completion message
+                const randomMessage = questCompleteMessages[Math.floor(Math.random() * questCompleteMessages.length)];
+                showNotification(`${randomMessage} +${xpGained} XP!`);
+                
+                // Start break
+                const breakMinutes = parseInt(document.getElementById('breakMinutes').value);
+                timerState.minutes = breakMinutes;
+                timerState.seconds = 0;
+                timerState.isBreak = true;
+                updateTimer();
+                
+                // Fun break message
+                setTimeout(() => {
+                    const randomBreakMessage = breakMessages[Math.floor(Math.random() * breakMessages.length)];
+                    showNotification(randomBreakMessage);
+                }, 2000);
+                
+            } else {
+                // Break completed
+                const motivationalMessages = [
+                    '💪 Break over! Your brain is SUPERCHARGED!',
+                    '🔥 Ready to DOMINATE the next quest?',
+                    '⚡ Powers restored! Time to be LEGENDARY!',
+                    '🚀 Launch sequence initiated! 3... 2... 1... FOCUS!'
+                ];
+                const randomMotivation = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+                showNotification(randomMotivation);
+                resetTimer();
+            }
+        }
+        
+        // Update quest log with fun elements
+        function updateQuestLog() {
+            const questList = document.getElementById('questList');
+            
+            if (gameState.quests.length === 0) {
+                questList.innerHTML = `
+                    <div style="text-align: center; padding: 30px;">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">🗡️</div>
+                        <p style="color: #94a3b8; font-style: italic; font-size: 1.1rem;">
+                            Your quest log awaits, brave hunter!<br>
+                            Complete your first session to begin your legendary journey!
+                        </p>
+                        <div style="font-size: 1.5rem; margin-top: 15px;">⭐✨🌟</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            questList.innerHTML = gameState.quests.map((quest, index) => {
+                const date = new Date(quest.timestamp).toLocaleDateString();
+                const time = new Date(quest.timestamp).toLocaleTimeString();
+                const medals = ['🥇', '🥈', '🥉', '🏅', '⭐'];
+                const medal = medals[Math.min(index, medals.length - 1)];
+                const xpDisplay = quest.xpGained ? `+${quest.xpGained} XP` : `+${quest.duration * 2} XP`;
+                
+                return `
+                    <div class="quest-item">
+                        <div class="quest-header">
+                            <div class="quest-task">${medal} ${quest.task}</div>
+                            <div class="quest-time">${quest.duration}min</div>
+                        </div>
+                        <div class="quest-category">${quest.category} • ${xpDisplay} • ${date} ${time}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Generate shareable code
+        function generateShareCode() {
+            const dataToShare = {
+                ...gameState,
+                timestamp: Date.now(),
+                version: "1.0"
+            };
+            
+            // Compress and encode the data
+            const jsonString = JSON.stringify(dataToShare);
+            const encoded = btoa(jsonString); // Base64 encode
+            
+            return encoded;
+        }
+        
+        // Show share modal
+        function showShareModal() {
+            const shareCode = generateShareCode();
+            document.getElementById('shareCode').value = shareCode;
+            document.getElementById('shareModal').style.display = 'block';
+        }
+        
+        // Copy share code to clipboard
+        function copyShareCode() {
+            const shareCodeElement = document.getElementById('shareCode');
+            shareCodeElement.select();
+            shareCodeElement.setSelectionRange(0, 99999); // For mobile
+            
+            try {
+                document.execCommand('copy');
+                showNotification('📋 Progress code copied! Share it with your other devices!');
+            } catch (err) {
+                // Fallback for browsers that don't support execCommand
+                navigator.clipboard.writeText(shareCodeElement.value).then(() => {
+                    showNotification('📋 Progress code copied! Share it with your other devices!');
+                }).catch(() => {
+                    showNotification('❌ Failed to copy. Please manually copy the code.');
+                });
+            }
+        }
+        
+        // Close share modal
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+        
+        // Show load modal
+        function showLoadModal() {
+            document.getElementById('loadCode').value = '';
+            document.getElementById('loadModal').style.display = 'block';
+        }
+        
+        // Load progress from code
+        function loadFromCode() {
+            const codeInput = document.getElementById('loadCode').value.trim();
+            
+            if (!codeInput) {
+                showNotification('❌ Please paste a progress code first!');
+                return;
+            }
+            
+            try {
+                // Decode the base64 string
+                const decoded = atob(codeInput);
+                const importedData = JSON.parse(decoded);
+                
+                // Validate data structure
+                if (importedData.level && importedData.xp !== undefined) {
+                    gameState = {
+                        level: importedData.level || 1,
+                        xp: importedData.xp || 0,
+                        totalTime: importedData.totalTime || 0,
+                        totalSessions: importedData.totalSessions || 0,
+                        streak: importedData.streak || 0,
+                        quests: importedData.quests || []
+                    };
+                    
+                    saveGameData();
+                    updateDisplay();
+                    updateQuestLog();
+                    triggerCelebration();
+                    closeLoadModal();
+                    showNotification('🎉 Progress synced successfully! Welcome back, Shadow Monarch!');
+                } else {
+                    showNotification('❌ Invalid progress code format!');
+                }
+            } catch (error) {
+                showNotification('❌ Invalid progress code! Please check and try again.');
+            }
+        }
+        
+        // Close load modal
+        function closeLoadModal() {
+            document.getElementById('loadModal').style.display = 'none';
+        }
+
+        // Export data to JSON file
+        function exportData() {
+            const dataToExport = {
+                ...gameState,
+                exportDate: new Date().toISOString(),
+                version: "1.0"
+            };
+            
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `shadow-monarch-progress-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+            
+            showNotification('📁 Progress exported successfully! Keep your save file safe!');
+        }
+        
+        // Import data from JSON file
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // Validate data structure
+                    if (importedData.level && importedData.xp !== undefined) {
+                        gameState = {
+                            level: importedData.level || 1,
+                            xp: importedData.xp || 0,
+                            totalTime: importedData.totalTime || 0,
+                            totalSessions: importedData.totalSessions || 0,
+                            streak: importedData.streak || 0,
+                            quests: importedData.quests || []
+                        };
+                        
+                        saveGameData();
+                        updateDisplay();
+                        updateQuestLog();
+                        triggerCelebration();
+                        showNotification('🎉 Progress restored successfully! Welcome back, Shadow Monarch!');
+                    } else {
+                        showNotification('❌ Invalid save file format!');
+                    }
+                } catch (error) {
+                    showNotification('❌ Error reading save file!');
+                }
+            };
+            reader.readAsText(file);
+            
+            // Reset file input
+            event.target.value = '';
+        }
+        
+        // Initialize app
+        function init() {
+            loadGameData();
+            createParticles();
+            updateDisplay();
+            updateTimer();
+            updateQuestLog();
+            
+            // Event listeners
+            document.getElementById('startBtn').addEventListener('click', startTimer);
+            document.getElementById('stopBtn').addEventListener('click', stopTimer);
+            document.getElementById('resetBtn').addEventListener('click', resetTimer);
+            document.getElementById('exportBtn').addEventListener('click', exportData);
+            document.getElementById('importBtn').addEventListener('click', () => {
+                document.getElementById('importFile').click();
+            });
+            document.getElementById('shareBtn').addEventListener('click', showShareModal);
+            document.getElementById('loadBtn').addEventListener('click', showLoadModal);
+            document.getElementById('importFile').addEventListener('change', importData);
+            
+            // Close modals when clicking outside
+            document.getElementById('shareModal').addEventListener('click', (e) => {
+                if (e.target.id === 'shareModal') closeShareModal();
+            });
+            document.getElementById('loadModal').addEventListener('click', (e) => {
+                if (e.target.id === 'loadModal') closeLoadModal();
+            });
+            
+            // Make functions global for onclick handlers
+            window.copyShareCode = copyShareCode;
+            window.closeShareModal = closeShareModal;
+            window.loadFromCode = loadFromCode;
+            window.closeLoadModal = closeLoadModal;
+            
+            document.getElementById('focusMinutes').addEventListener('change', () => {
+                if (!timerState.isRunning && !timerState.isBreak) {
+                    resetTimer();
+                }
+            });
+        }
+        
+        // Start the app
+        init();
