@@ -490,6 +490,12 @@
             margin-bottom: 20px;
             text-align: center;
         }
+
+        @keyframes flash {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
         
         @media (max-width: 768px) {
             .title {
@@ -658,6 +664,36 @@
     </div>
 
     <script>
+        // In-memory storage instead of localStorage
+        let memoryStorage = {};
+        
+        function getFromStorage(key) {
+            return memoryStorage[key] || null;
+        }
+        
+        function setInStorage(key, value) {
+            memoryStorage[key] = value;
+        }
+
+        // Timer variables
+        let isRunning = false;
+        let isBreakTime = false;
+        let timeLeft = 25 * 60; // 25 minutes in seconds
+        let timerInterval;
+        let audioContext;
+        let currentSession = null;
+        
+        // Progress variables
+        let gameData = {
+            level: 1,
+            xp: 0,
+            totalMinutes: 0,
+            totalSessions: 0,
+            streak: 0,
+            lastSessionDate: null,
+            sessions: []
+        };
+
         // PWA Install functionality
         let deferredPrompt;
         const installBtn = document.getElementById('installBtn');
@@ -680,374 +716,257 @@
             }
         });
 
-        // Service Worker for offline functionality
-        if ('serviceWorker' in navigator) {
-            const swCode = `
-                const CACHE_NAME = 'shadow-monarch-v1';
-                const urlsToCache = ['/'];
+        // Initialize app
+        document.addEventListener('DOMContentLoaded', function() {
+            loadGameData();
+            updateDisplay();
+            createParticles();
+            initializeAudio();
+            setupEventListeners();
+        });
 
-                self.addEventListener('install', (event) => {
-                    event.waitUntil(
-                        caches.open(CACHE_NAME)
-                            .then((cache) => cache.addAll(urlsToCache))
-                    );
-                });
-
-                self.addEventListener('fetch', (event) => {
-                    event.respondWith(
-                        caches.match(event.request)
-                            .then((response) => response || fetch(event.request))
-                    );
-                });
-            `;
-
-            const blob = new Blob([swCode], { type: 'application/javascript' });
-            const swUrl = URL.createObjectURL(blob);
-            
-            navigator.serviceWorker.register(swUrl)
-                .then(() => console.log('Service Worker registered'))
-                .catch(() => console.log('Service Worker registration failed'));
-        }
-
-        // Game state
-        let gameState = {
-            level: 1,
-            xp: 0,
-            totalTime: 0,
-            totalSessions: 0,
-            streak: 0,
-            quests: []
-        };
-        
-        // Timer state
-        let timerState = {
-            minutes: 25,
-            seconds: 0,
-            isRunning: false,
-            isBreak: false,
-            interval: null
-        };
-        
-        // Fun messages arrays
-        const questCompleteMessages = [
-            "🗡️ Shadow Clone Jutsu successful! Training complete!",
-            "⚔️ You've slain the Procrastination Dragon!",
-            "🔥 Focus Fire technique mastered!",
-            "⭐ Achievement Unlocked: Deep Work Warrior!",
-            "🎯 Critical Hit! Productivity damage: MASSIVE!",
-            "🏆 You're unstoppable! The Shadow Army grows stronger!",
-            "💎 Legendary focus session completed!",
-            "🚀 Blast off! Your brain just leveled up!",
-            "⚡ Lightning Focus Strike! Enemy distractions defeated!"
-        ];
-        
-        const breakMessages = [
-            "☕ Mana regeneration time! Sip that potion!",
-            "🍕 Hero needs food! Badly!",
-            "🌟 Your brain is downloading new powers...",
-            "🎮 Loading next level... Please wait!",
-            "🛡️ Shield recharging... Defense systems online!",
-            "🔋 Battery at 100%! Ready to conquer!",
-            "🌈 Rainbow bridge to productivity is loading...",
-            "🎪 Intermission! The show must go on!"
-        ];
-        
-        const levelUpMessages = [
-            "🎉 LEVEL UP! You're now a Focus Ninja Level",
-            "💫 ASCENSION COMPLETE! Shadow Monarch Level",
-            "🔥 POWER SURGE! You've reached Level",
-            "⚡ TRANSFORMATION! Welcome to Level",
-            "🌟 EVOLUTION! You are now Level",
-            "👑 CORONATION! All hail Level"
-        ];
-
-        // Load saved data
-        function loadGameData() {
-            const saved = localStorage.getItem('soloLevelingData');
-            if (saved) {
-                gameState = { ...gameState, ...JSON.parse(saved) };
+        function initializeAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.log('Audio context not supported');
             }
         }
-        
-        // Save game data
-        function saveGameData() {
-            localStorage.setItem('soloLevelingData', JSON.stringify(gameState));
+
+        function setupEventListeners() {
+            document.getElementById('startBtn').addEventListener('click', startTimer);
+            document.getElementById('stopBtn').addEventListener('click', stopTimer);
+            document.getElementById('resetBtn').addEventListener('click', resetTimer);
+            document.getElementById('exportBtn').addEventListener('click', exportData);
+            document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
+            document.getElementById('shareBtn').addEventListener('click', shareProgress);
+            document.getElementById('loadBtn').addEventListener('click', showLoadModal);
+            document.getElementById('importFile').addEventListener('change', importData);
+            document.getElementById('focusMinutes').addEventListener('change', updateTimerDisplay);
         }
-        
-        // Create floating particles
+
         function createParticles() {
-            const particles = document.querySelector('.particles');
-            for (let i = 0; i < 50; i++) {
+            const particlesContainer = document.querySelector('.particles');
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
                 const particle = document.createElement('div');
                 particle.className = 'particle';
                 particle.style.left = Math.random() * 100 + '%';
                 particle.style.top = Math.random() * 100 + '%';
                 particle.style.animationDelay = Math.random() * 6 + 's';
-                particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
-                particles.appendChild(particle);
+                particle.style.animationDuration = (Math.random() * 4 + 4) + 's';
+                particlesContainer.appendChild(particle);
             }
         }
-        
-        // Calculate XP needed for level
-        function getXPForLevel(level) {
-            return 100 + (level - 1) * 50;
-        }
-        
-        // Level up check with fun messages
-        function checkLevelUp() {
-            const xpNeeded = getXPForLevel(gameState.level);
-            if (gameState.xp >= xpNeeded) {
-                gameState.level++;
-                gameState.xp -= xpNeeded;
-                
-                // Fun level up message
-                const randomLevelMessage = levelUpMessages[Math.floor(Math.random() * levelUpMessages.length)];
-                showNotification(`${randomLevelMessage} ${gameState.level}! 🎊`);
-                
-                // Trigger extra celebration for level ups
-                setTimeout(() => triggerCelebration(), 500);
-                
-                checkLevelUp(); // Check for multiple level ups
-            }
-        }
-        
-        // Celebration effects
-        function triggerCelebration() {
-            // Create celebration particles
-            for (let i = 0; i < 30; i++) {
-                createCelebrationParticle();
-            }
-            
-            // Screen flash effect
-            const flash = document.createElement('div');
-            flash.style.position = 'fixed';
-            flash.style.top = '0';
-            flash.style.left = '0';
-            flash.style.width = '100vw';
-            flash.style.height = '100vh';
-            flash.style.background = 'rgba(124, 58, 237, 0.3)';
-            flash.style.pointerEvents = 'none';
-            flash.style.zIndex = '9999';
-            flash.style.animation = 'flash 0.5s ease-out';
-            document.body.appendChild(flash);
-            
-            setTimeout(() => {
-                if (document.body.contains(flash)) {
-                    document.body.removeChild(flash);
+
+        function loadGameData() {
+            const saved = getFromStorage('shadowMonarchData');
+            if (saved) {
+                try {
+                    gameData = JSON.parse(saved);
+                    updateStreak();
+                } catch (e) {
+                    console.log('Error loading saved data');
                 }
-            }, 500);
-            
-            // Add flash animation
-            if (!document.getElementById('flashStyle')) {
-                const style = document.createElement('style');
-                style.id = 'flashStyle';
-                style.textContent = `
-                    @keyframes flash {
-                        0% { opacity: 0; }
-                        50% { opacity: 1; }
-                        100% { opacity: 0; }
-                    }
-                `;
-                document.head.appendChild(style);
             }
         }
-        
-        // Create celebration particles
-        function createCelebrationParticle() {
-            const particle = document.createElement('div');
-            const colors = ['#fbbf24', '#f59e0b', '#7c3aed', '#a855f7', '#ef4444', '#10b981'];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
-            
-            particle.style.position = 'fixed';
-            particle.style.width = '8px';
-            particle.style.height = '8px';
-            particle.style.background = randomColor;
-            particle.style.borderRadius = '50%';
-            particle.style.left = Math.random() * window.innerWidth + 'px';
-            particle.style.top = window.innerHeight + 'px';
-            particle.style.pointerEvents = 'none';
-            particle.style.zIndex = '1000';
-            
-            const animation = particle.animate([
-                { 
-                    transform: 'translateY(0px) rotate(0deg)', 
-                    opacity: 1 
-                },
-                { 
-                    transform: `translateY(-${window.innerHeight + 100}px) rotate(720deg)`, 
-                    opacity: 0 
-                }
-            ], {
-                duration: 2000 + Math.random() * 1000,
-                easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
-            });
-            
-            document.body.appendChild(particle);
-            
-            animation.addEventListener('finish', () => {
-                if (document.body.contains(particle)) {
-                    document.body.removeChild(particle);
-                }
-            });
+
+        function saveGameData() {
+            setInStorage('shadowMonarchData', JSON.stringify(gameData));
         }
-        
-        // Show notification
-        function showNotification(message) {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.classList.add('show');
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 4000);
-        }
-        
-        // Update display
-        function updateDisplay() {
-            document.getElementById('level').textContent = gameState.level;
-            document.getElementById('totalTime').textContent = formatTime(gameState.totalTime);
-            document.getElementById('totalSessions').textContent = gameState.totalSessions;
-            document.getElementById('streak').textContent = gameState.streak;
+
+        function updateStreak() {
+            const today = new Date().toDateString();
+            const yesterday = new Date(Date.now() - 86400000).toDateString();
             
-            const xpNeeded = getXPForLevel(gameState.level);
-            const progress = (gameState.xp / xpNeeded) * 100;
-            document.getElementById('levelProgress').style.width = progress + '%';
-            document.getElementById('xpText').textContent = `${gameState.xp} / ${xpNeeded} XP`;
+            if (gameData.lastSessionDate === today) {
+                // Already updated today, keep streak
+            } else if (gameData.lastSessionDate === yesterday) {
+                // Continue streak from yesterday
+            } else if (gameData.lastSessionDate && gameData.lastSessionDate !== today) {
+                // Streak broken
+                gameData.streak = 0;
+            }
         }
-        
-        // Format time helper
-        function formatTime(minutes) {
-            const hours = Math.floor(minutes / 60);
-            const mins = minutes % 60;
-            return `${hours}h ${mins}m`;
-        }
-        
-        // Update timer display
-        function updateTimer() {
-            const mins = timerState.minutes.toString().padStart(2, '0');
-            const secs = timerState.seconds.toString().padStart(2, '0');
-            document.getElementById('timer').textContent = `${mins}:${secs}`;
-        }
-        
-        // Start timer
+
         function startTimer() {
-            if (timerState.isRunning) return;
+            if (isRunning) return;
             
-            timerState.isRunning = true;
-            document.getElementById('timer').classList.add('active');
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('stopBtn').style.display = 'inline-block';
-            
-            timerState.interval = setInterval(() => {
-                if (timerState.seconds === 0) {
-                    if (timerState.minutes === 0) {
-                        // Timer finished
-                        completeSession();
-                        return;
-                    }
-                    timerState.minutes--;
-                    timerState.seconds = 59;
-                } else {
-                    timerState.seconds--;
-                }
-                updateTimer();
-            }, 1000);
-        }
-        
-        // Stop timer
-        function stopTimer() {
-            clearInterval(timerState.interval);
-            timerState.isRunning = false;
-            document.getElementById('timer').classList.remove('active');
-            document.getElementById('startBtn').style.display = 'inline-block';
-            document.getElementById('stopBtn').style.display = 'none';
-        }
-        
-        // Reset timer
-        function resetTimer() {
-            stopTimer();
+            const taskText = document.getElementById('taskInput').value.trim();
+            if (!taskText) {
+                showNotification('⚠️ Please enter a quest description first!', 'warning');
+                return;
+            }
+
+            isRunning = true;
             const focusMinutes = parseInt(document.getElementById('focusMinutes').value);
-            timerState.minutes = focusMinutes;
-            timerState.seconds = 0;
-            timerState.isBreak = false;
-            updateTimer();
-        }
-        
-        // Complete session
-        function completeSession() {
-            stopTimer();
+            const category = document.getElementById('category').value;
             
-            if (!timerState.isBreak) {
-                // Focus session completed
-                const focusMinutes = parseInt(document.getElementById('focusMinutes').value);
-                const task = document.getElementById('taskInput').value || 'Deep Work Session';
-                const category = document.getElementById('category').value;
-                
-                // Update game state
-                gameState.totalTime += focusMinutes;
-                gameState.totalSessions++;
-                gameState.streak++;
-                const xpGained = Math.floor(focusMinutes * 2) + Math.floor(Math.random() * 20); // Random bonus XP!
-                gameState.xp += xpGained;
-                
-                // Add to quest log
-                gameState.quests.unshift({
-                    task: task,
+            if (!isBreakTime) {
+                currentSession = {
+                    task: taskText,
                     category: category,
                     duration: focusMinutes,
-                    timestamp: Date.now(),
-                    xpGained: xpGained
-                });
+                    startTime: new Date(),
+                    completed: false
+                };
+                timeLeft = focusMinutes * 60;
+                showNotification(`🚀 Epic quest "${taskText}" has begun! Focus time: ${focusMinutes} minutes`);
+            } else {
+                const breakMinutes = parseInt(document.getElementById('breakMinutes').value);
+                timeLeft = breakMinutes * 60;
+                showNotification(`☕ Break time started! Rest for ${breakMinutes} minutes`);
+            }
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+            document.getElementById('timer').classList.add('active');
+            
+            timerInterval = setInterval(updateTimer, 1000);
+            updateTimerDisplay();
+        }
+
+        function stopTimer() {
+            if (!isRunning) return;
+            
+            isRunning = false;
+            clearInterval(timerInterval);
+            
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('timer').classList.remove('active');
+            
+            if (!isBreakTime) {
+                showNotification('⏸️ Quest paused. Resume when ready!');
+            } else {
+                showNotification('⏸️ Break paused.');
+            }
+        }
+
+        function resetTimer() {
+            isRunning = false;
+            isBreakTime = false;
+            clearInterval(timerInterval);
+            
+            const focusMinutes = parseInt(document.getElementById('focusMinutes').value);
+            timeLeft = focusMinutes * 60;
+            currentSession = null;
+            
+            document.getElementById('startBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('timer').classList.remove('active');
+            
+            updateTimerDisplay();
+            showNotification('🔄 Timer reset. Ready for a new quest!');
+        }
+
+        function updateTimer() {
+            timeLeft--;
+            updateTimerDisplay();
+            
+            if (timeLeft <= 0) {
+                completeSession();
+            }
+        }
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('timer').textContent = display;
+        }
+
+        function completeSession() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            
+            if (!isBreakTime) {
+                // Focus session completed
+                playNotificationSound();
+                currentSession.completed = true;
+                currentSession.endTime = new Date();
                 
-                // Keep only last 10 quests
-                if (gameState.quests.length > 10) {
-                    gameState.quests = gameState.quests.slice(0, 10);
+                // Update progress
+                const sessionMinutes = currentSession.duration;
+                gameData.totalMinutes += sessionMinutes;
+                gameData.totalSessions++;
+                gameData.sessions.push(currentSession);
+                
+                // Update streak
+                const today = new Date().toDateString();
+                if (gameData.lastSessionDate !== today) {
+                    gameData.streak++;
+                    gameData.lastSessionDate = today;
                 }
                 
-                // Fun completion celebration
-                triggerCelebration();
-                
-                const oldLevel = gameState.level;
+                // Calculate XP and level up
+                const xpGained = sessionMinutes * 2; // 2 XP per minute
+                gameData.xp += xpGained;
                 checkLevelUp();
+                
                 saveGameData();
                 updateDisplay();
-                updateQuestLog();
                 
-                // Show fun completion message
-                const randomMessage = questCompleteMessages[Math.floor(Math.random() * questCompleteMessages.length)];
-                showNotification(`${randomMessage} +${xpGained} XP!`);
+                showNotification(`🎉 Quest completed! +${xpGained} XP gained! Time for a well-deserved break!`);
                 
-                // Start break
+                // Start break timer
+                isBreakTime = true;
                 const breakMinutes = parseInt(document.getElementById('breakMinutes').value);
-                timerState.minutes = breakMinutes;
-                timerState.seconds = 0;
-                timerState.isBreak = true;
-                updateTimer();
-                
-                // Fun break message
-                setTimeout(() => {
-                    const randomBreakMessage = breakMessages[Math.floor(Math.random() * breakMessages.length)];
-                    showNotification(randomBreakMessage);
-                }, 2000);
+                timeLeft = breakMinutes * 60;
+                document.getElementById('startBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'none';
+                document.getElementById('timer').classList.remove('active');
+                updateTimerDisplay();
                 
             } else {
                 // Break completed
-                const motivationalMessages = [
-                    '💪 Break over! Your brain is SUPERCHARGED!',
-                    '🔥 Ready to DOMINATE the next quest?',
-                    '⚡ Powers restored! Time to be LEGENDARY!',
-                    '🚀 Launch sequence initiated! 3... 2... 1... FOCUS!'
-                ];
-                const randomMotivation = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
-                showNotification(randomMotivation);
-                resetTimer();
+                playNotificationSound();
+                isBreakTime = false;
+                const focusMinutes = parseInt(document.getElementById('focusMinutes').value);
+                timeLeft = focusMinutes * 60;
+                document.getElementById('startBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'none';
+                document.getElementById('timer').classList.remove('active');
+                updateTimerDisplay();
+                
+                showNotification('⚡ Break finished! Ready for your next epic quest!');
             }
         }
-        
-        // Update quest log with fun elements
+
+        function checkLevelUp() {
+            const xpNeeded = gameData.level * 100;
+            if (gameData.xp >= xpNeeded) {
+                gameData.level++;
+                gameData.xp -= xpNeeded;
+                showNotification(`🎆 LEVEL UP! You are now Level ${gameData.level}! Your legend grows!`, 'levelup');
+                playLevelUpSound();
+            }
+        }
+
+        function updateDisplay() {
+            // Update level and XP
+            document.getElementById('level').textContent = gameData.level;
+            const xpNeeded = gameData.level * 100;
+            const xpProgress = (gameData.xp / xpNeeded) * 100;
+            document.getElementById('levelProgress').style.width = xpProgress + '%';
+            document.getElementById('xpText').textContent = `${gameData.xp} / ${xpNeeded} XP`;
+            
+            // Update stats
+            const hours = Math.floor(gameData.totalMinutes / 60);
+            const minutes = gameData.totalMinutes % 60;
+            document.getElementById('totalTime').textContent = `${hours}h ${minutes}m`;
+            document.getElementById('totalSessions').textContent = gameData.totalSessions;
+            document.getElementById('streak').textContent = gameData.streak;
+            
+            // Update quest log
+            updateQuestLog();
+        }
+
         function updateQuestLog() {
             const questList = document.getElementById('questList');
             
-            if (gameState.quests.length === 0) {
+            if (gameData.sessions.length === 0) {
                 questList.innerHTML = `
                     <div style="text-align: center; padding: 30px;">
                         <div style="font-size: 3rem; margin-bottom: 15px;">🗡️</div>
@@ -1061,130 +980,91 @@
                 return;
             }
             
-            questList.innerHTML = gameState.quests.map((quest, index) => {
-                const date = new Date(quest.timestamp).toLocaleDateString();
-                const time = new Date(quest.timestamp).toLocaleTimeString();
-                const medals = ['🥇', '🥈', '🥉', '🏅', '⭐'];
-                const medal = medals[Math.min(index, medals.length - 1)];
-                const xpDisplay = quest.xpGained ? `+${quest.xpGained} XP` : `+${quest.duration * 2} XP`;
+            const recentSessions = gameData.sessions.slice(-10).reverse();
+            questList.innerHTML = recentSessions.map(session => {
+                const duration = session.duration;
+                const startTime = new Date(session.startTime).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const date = new Date(session.startTime).toLocaleDateString();
                 
                 return `
                     <div class="quest-item">
                         <div class="quest-header">
-                            <div class="quest-task">${medal} ${quest.task}</div>
-                            <div class="quest-time">${quest.duration}min</div>
+                            <span class="quest-task">${session.task}</span>
+                            <span class="quest-time">${duration}m</span>
                         </div>
-                        <div class="quest-category">${quest.category} • ${xpDisplay} • ${date} ${time}</div>
+                        <div class="quest-category">${session.category} • ${date} at ${startTime}</div>
                     </div>
                 `;
             }).join('');
         }
 
-        // Generate shareable code
-        function generateShareCode() {
-            const dataToShare = {
-                ...gameState,
-                timestamp: Date.now(),
-                version: "1.0"
-            };
-            
-            // Compress and encode the data
-            const jsonString = JSON.stringify(dataToShare);
-            const encoded = btoa(jsonString); // Base64 encode
-            
-            return encoded;
+        function playNotificationSound() {
+            if (audioContext) {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.2);
+                
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + 0.01);
+                gainNode.gain.setValueAtTime(0, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+            }
         }
-        
-        // Show share modal
-        function showShareModal() {
-            const shareCode = generateShareCode();
-            document.getElementById('shareCode').value = shareCode;
-            document.getElementById('shareModal').style.display = 'block';
-        }
-        
-        // Copy share code to clipboard
-        function copyShareCode() {
-            const shareCodeElement = document.getElementById('shareCode');
-            shareCodeElement.select();
-            shareCodeElement.setSelectionRange(0, 99999); // For mobile
-            
-            try {
-                document.execCommand('copy');
-                showNotification('📋 Progress code copied! Share it with your other devices!');
-            } catch (err) {
-                // Fallback for browsers that don't support execCommand
-                navigator.clipboard.writeText(shareCodeElement.value).then(() => {
-                    showNotification('📋 Progress code copied! Share it with your other devices!');
-                }).catch(() => {
-                    showNotification('❌ Failed to copy. Please manually copy the code.');
+
+        function playLevelUpSound() {
+            if (audioContext) {
+                const frequencies = [523, 659, 784, 1047]; // C, E, G, C
+                frequencies.forEach((freq, index) => {
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime + index * 0.1);
+                    gainNode.gain.setValueAtTime(0, audioContext.currentTime + index * 0.1 + 0.2);
+                    
+                    oscillator.start(audioContext.currentTime + index * 0.1);
+                    oscillator.stop(audioContext.currentTime + index * 0.1 + 0.2);
                 });
             }
         }
-        
-        // Close share modal
-        function closeShareModal() {
-            document.getElementById('shareModal').style.display = 'none';
-        }
-        
-        // Show load modal
-        function showLoadModal() {
-            document.getElementById('loadCode').value = '';
-            document.getElementById('loadModal').style.display = 'block';
-        }
-        
-        // Load progress from code
-        function loadFromCode() {
-            const codeInput = document.getElementById('loadCode').value.trim();
+
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
             
-            if (!codeInput) {
-                showNotification('❌ Please paste a progress code first!');
-                return;
+            if (type === 'warning') {
+                notification.style.background = 'linear-gradient(45deg, #f59e0b, #d97706)';
+            } else if (type === 'levelup') {
+                notification.style.background = 'linear-gradient(45deg, #fbbf24, #f59e0b)';
+            } else {
+                notification.style.background = 'linear-gradient(45deg, #059669, #10b981)';
             }
             
-            try {
-                // Decode the base64 string
-                const decoded = atob(codeInput);
-                const importedData = JSON.parse(decoded);
-                
-                // Validate data structure
-                if (importedData.level && importedData.xp !== undefined) {
-                    gameState = {
-                        level: importedData.level || 1,
-                        xp: importedData.xp || 0,
-                        totalTime: importedData.totalTime || 0,
-                        totalSessions: importedData.totalSessions || 0,
-                        streak: importedData.streak || 0,
-                        quests: importedData.quests || []
-                    };
-                    
-                    saveGameData();
-                    updateDisplay();
-                    updateQuestLog();
-                    triggerCelebration();
-                    closeLoadModal();
-                    showNotification('🎉 Progress synced successfully! Welcome back, Shadow Monarch!');
-                } else {
-                    showNotification('❌ Invalid progress code format!');
-                }
-            } catch (error) {
-                showNotification('❌ Invalid progress code! Please check and try again.');
-            }
-        }
-        
-        // Close load modal
-        function closeLoadModal() {
-            document.getElementById('loadModal').style.display = 'none';
+            notification.classList.add('show');
+            
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 4000);
         }
 
-        // Export data to JSON file
+        // Data management functions
         function exportData() {
-            const dataToExport = {
-                ...gameState,
-                exportDate: new Date().toISOString(),
-                version: "1.0"
-            };
-            
-            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataStr = JSON.stringify(gameData, null, 2);
             const dataBlob = new Blob([dataStr], {type: 'application/json'});
             
             const link = document.createElement('a');
@@ -1192,10 +1072,9 @@
             link.download = `shadow-monarch-progress-${new Date().toISOString().split('T')[0]}.json`;
             link.click();
             
-            showNotification('📁 Progress exported successfully! Keep your save file safe!');
+            showNotification('💾 Progress exported successfully!');
         }
-        
-        // Import data from JSON file
+
         function importData(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1205,27 +1084,17 @@
                 try {
                     const importedData = JSON.parse(e.target.result);
                     
-                    // Validate data structure
-                    if (importedData.level && importedData.xp !== undefined) {
-                        gameState = {
-                            level: importedData.level || 1,
-                            xp: importedData.xp || 0,
-                            totalTime: importedData.totalTime || 0,
-                            totalSessions: importedData.totalSessions || 0,
-                            streak: importedData.streak || 0,
-                            quests: importedData.quests || []
-                        };
-                        
+                    // Validate imported data
+                    if (importedData.level && importedData.sessions) {
+                        gameData = importedData;
                         saveGameData();
                         updateDisplay();
-                        updateQuestLog();
-                        triggerCelebration();
-                        showNotification('🎉 Progress restored successfully! Welcome back, Shadow Monarch!');
+                        showNotification('📁 Progress imported successfully!');
                     } else {
-                        showNotification('❌ Invalid save file format!');
+                        showNotification('⚠️ Invalid save file format!', 'warning');
                     }
                 } catch (error) {
-                    showNotification('❌ Error reading save file!');
+                    showNotification('⚠️ Error reading save file!', 'warning');
                 }
             };
             reader.readAsText(file);
@@ -1233,47 +1102,82 @@
             // Reset file input
             event.target.value = '';
         }
-        
-        // Initialize app
-        function init() {
-            loadGameData();
-            createParticles();
-            updateDisplay();
-            updateTimer();
-            updateQuestLog();
-            
-            // Event listeners
-            document.getElementById('startBtn').addEventListener('click', startTimer);
-            document.getElementById('stopBtn').addEventListener('click', stopTimer);
-            document.getElementById('resetBtn').addEventListener('click', resetTimer);
-            document.getElementById('exportBtn').addEventListener('click', exportData);
-            document.getElementById('importBtn').addEventListener('click', () => {
-                document.getElementById('importFile').click();
-            });
-            document.getElementById('shareBtn').addEventListener('click', showShareModal);
-            document.getElementById('loadBtn').addEventListener('click', showLoadModal);
-            document.getElementById('importFile').addEventListener('change', importData);
-            
-            // Close modals when clicking outside
-            document.getElementById('shareModal').addEventListener('click', (e) => {
-                if (e.target.id === 'shareModal') closeShareModal();
-            });
-            document.getElementById('loadModal').addEventListener('click', (e) => {
-                if (e.target.id === 'loadModal') closeLoadModal();
-            });
-            
-            // Make functions global for onclick handlers
-            window.copyShareCode = copyShareCode;
-            window.closeShareModal = closeShareModal;
-            window.loadFromCode = loadFromCode;
-            window.closeLoadModal = closeLoadModal;
-            
-            document.getElementById('focusMinutes').addEventListener('change', () => {
-                if (!timerState.isRunning && !timerState.isBreak) {
-                    resetTimer();
-                }
-            });
+
+        function shareProgress() {
+            const progressCode = btoa(JSON.stringify(gameData));
+            document.getElementById('shareCode').value = progressCode;
+            document.getElementById('shareModal').style.display = 'block';
         }
-        
-        // Start the app
-        init();
+
+        function copyShareCode() {
+            const shareCode = document.getElementById('shareCode');
+            shareCode.select();
+            shareCode.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+            showNotification('📋 Progress code copied to clipboard!');
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+
+        function showLoadModal() {
+            document.getElementById('loadModal').style.display = 'block';
+        }
+
+        function loadFromCode() {
+            const code = document.getElementById('loadCode').value.trim();
+            if (!code) {
+                showNotification('⚠️ Please enter a progress code!', 'warning');
+                return;
+            }
+            
+            try {
+                const importedData = JSON.parse(atob(code));
+                
+                if (importedData.level && importedData.sessions) {
+                    gameData = importedData;
+                    saveGameData();
+                    updateDisplay();
+                    showNotification('🚀 Progress loaded successfully!');
+                    closeLoadModal();
+                } else {
+                    showNotification('⚠️ Invalid progress code!', 'warning');
+                }
+            } catch (error) {
+                showNotification('⚠️ Invalid progress code format!', 'warning');
+            }
+        }
+
+        function closeLoadModal() {
+            document.getElementById('loadModal').style.display = 'none';
+            document.getElementById('loadCode').value = '';
+        }
+
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            const shareModal = document.getElementById('shareModal');
+            const loadModal = document.getElementById('loadModal');
+            
+            if (event.target === shareModal) {
+                closeShareModal();
+            }
+            if (event.target === loadModal) {
+                closeLoadModal();
+            }
+        });
+
+        // Update timer display when focus minutes change
+        function updateTimerDisplay() {
+            if (!isRunning && !isBreakTime) {
+                const focusMinutes = parseInt(document.getElementById('focusMinutes').value);
+                timeLeft = focusMinutes * 60;
+            }
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            document.getElementById('timer').textContent = display;
+        }
+    </script>
+</body>
+</html>
